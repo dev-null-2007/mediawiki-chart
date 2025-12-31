@@ -1,0 +1,47 @@
+{{- if .Values.mariadb.enabled }}
+{{- /*
+Copyright Broadcom, Inc. All Rights Reserved.
+SPDX-License-Identifier: APACHE-2.0
+*/}}
+
+{{- if and .Values.mariadb.metrics.enabled .Values.mariadb.metrics.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "common.names.fullname" . }}
+  namespace: {{ default .Release.Namespace .Values.mariadb.metrics.serviceMonitor.namespace | quote }}
+  {{- $labels := include "common.tplvalues.merge" ( dict "values" ( list .Values.mariadb.metrics.serviceMonitor.labels .Values.mariadb.commonLabels ) "context" . ) }}
+  labels: {{- include "common.labels.standard" ( dict "customLabels" $labels "context" $ ) | nindent 4 }}
+    app.kubernetes.io/part-of: mariadb
+  {{- if .Values.mariadb.commonAnnotations }}
+  annotations: {{- include "common.tplvalues.render" ( dict "value" .Values.mariadb.commonAnnotations "context" $ ) | nindent 4 }}
+  {{- end }}
+spec:
+  jobLabel: {{ .Values.mariadb.metrics.serviceMonitor.jobLabel | quote }}
+  endpoints:
+    - port: metrics
+      {{- if .Values.mariadb.metrics.serviceMonitor.interval }}
+      interval: {{ .Values.mariadb.metrics.serviceMonitor.interval }}
+      {{- end }}
+      {{- if .Values.mariadb.metrics.serviceMonitor.scrapeTimeout }}
+      scrapeTimeout: {{ .Values.mariadb.metrics.serviceMonitor.scrapeTimeout }}
+      {{- end }}
+      {{- if .Values.mariadb.metrics.serviceMonitor.honorLabels }}
+      honorLabels: {{ .Values.mariadb.metrics.serviceMonitor.honorLabels }}
+      {{- end }}
+      {{- if .Values.mariadb.metrics.serviceMonitor.metricRelabelings }}
+      metricRelabelings: {{- include "common.tplvalues.render" ( dict "value" .Values.mariadb.metrics.serviceMonitor.metricRelabelings "context" $) | nindent 8 }}
+      {{- end }}
+      {{- if .Values.mariadb.metrics.serviceMonitor.relabelings }}
+      relabelings: {{- include "common.tplvalues.render" ( dict "value" .Values.mariadb.metrics.serviceMonitor.relabelings "context" $) | nindent 8 }}
+      {{- end }}
+  namespaceSelector:
+    matchNames:
+      - {{ include "common.names.namespace" . | quote }}
+  selector:
+    matchLabels: {{- include "common.labels.matchLabels" ( dict "customLabels" .Values.mariadb.commonLabels "context" $ ) | nindent 6 }}
+      {{- if .Values.mariadb.metrics.serviceMonitor.selector }}
+      {{- include "common.tplvalues.render" (dict "value" .Values.mariadb.metrics.serviceMonitor.selector "context" $) | nindent 6 }}
+      {{- end }}
+{{- end }}
+{{- end }}

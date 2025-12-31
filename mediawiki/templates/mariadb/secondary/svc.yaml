@@ -1,0 +1,68 @@
+{{- if .Values.mariadb.enabled }}
+{{- /*
+Copyright Broadcom, Inc. All Rights Reserved.
+SPDX-License-Identifier: APACHE-2.0
+*/}}
+
+{{- if eq .Values.mariadb.architecture "replication" }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "mariadb.secondary.fullname" . }}
+  namespace: {{ include "common.names.namespace" . | quote }}
+  labels: {{- include "common.labels.standard" ( dict "customLabels" .Values.mariadb.commonLabels "context" $ ) | nindent 4 }}
+    app.kubernetes.io/part-of: mariadb
+    app.kubernetes.io/component: secondary
+  annotations:
+    {{- if or .Values.mariadb.secondary.service.annotations .Values.mariadb.commonAnnotations }}
+    {{- $annotations := include "common.tplvalues.merge" ( dict "values" ( list .Values.mariadb.secondary.service.annotations .Values.mariadb.commonAnnotations ) "context" . ) }}
+    {{- include "common.tplvalues.render" ( dict "value" $annotations "context" $) | nindent 4 }}
+    {{- end }}
+    {{- if and .Values.mariadb.metrics.enabled .Values.mariadb.metrics.annotations }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.mariadb.metrics.annotations "context" $ ) | nindent 4 }}
+    {{- end }}
+spec:
+  type: {{ .Values.mariadb.secondary.service.type }}
+  {{- if and .Values.mariadb.secondary.service.clusterIP (eq .Values.mariadb.secondary.service.type "ClusterIP") }}
+  clusterIP: {{ .Values.mariadb.secondary.service.clusterIP }}
+  {{- end }}
+  {{- if and .Values.mariadb.secondary.service.externalTrafficPolicy (or (eq .Values.mariadb.secondary.service.type "LoadBalancer") (eq .Values.mariadb.secondary.service.type "NodePort")) }}
+  externalTrafficPolicy: {{ .Values.mariadb.secondary.service.externalTrafficPolicy | quote }}
+  {{- end }}
+  {{- if and (eq .Values.mariadb.secondary.service.type "LoadBalancer") .Values.mariadb.secondary.service.loadBalancerSourceRanges }}
+  loadBalancerSourceRanges: {{- toYaml .Values.mariadb.secondary.service.loadBalancerSourceRanges | nindent 4 }}
+  {{ end }}
+  {{- if and (eq .Values.mariadb.secondary.service.type "LoadBalancer") (not (empty .Values.mariadb.secondary.service.loadBalancerIP)) }}
+  loadBalancerIP: {{ .Values.mariadb.secondary.service.loadBalancerIP }}
+  {{- end }}
+  {{- if ne .Values.mariadb.secondary.service.sessionAffinity "None"}}
+  sessionAffinity: {{ .Values.mariadb.secondary.service.sessionAffinity }}
+  {{- if .Values.mariadb.secondary.service.sessionAffinityConfig }}
+  sessionAffinityConfig: {{- include "common.tplvalues.render" (dict "value" .Values.mariadb.secondary.service.sessionAffinityConfig "context" $) | nindent 4 }}
+  {{- end }}
+  {{- end }}
+  ports:
+    - name: mysql
+      port: {{ coalesce .Values.mariadb.secondary.service.ports.mysql .Values.mariadb.secondary.service.port }}
+      protocol: TCP
+      targetPort: mysql
+      {{- if (and (or (eq .Values.mariadb.secondary.service.type "NodePort") (eq .Values.mariadb.secondary.service.type "LoadBalancer")) (coalesce .Values.mariadb.secondary.service.nodePorts.mysql .Values.mariadb.secondary.service.nodePort)) }}
+      nodePort: {{ coalesce .Values.mariadb.secondary.service.nodePorts.mysql .Values.mariadb.secondary.service.nodePort }}
+      {{- else if eq .Values.mariadb.secondary.service.type "ClusterIP" }}
+      nodePort: null
+      {{- end }}
+    {{- if and .Values.mariadb.metrics.enabled (gt (.Values.mariadb.secondary.service.ports.metrics | int) 0) }}
+    - name: metrics
+      port: {{ .Values.mariadb.secondary.service.ports.metrics }}
+      protocol: TCP
+      targetPort: metrics
+    {{- end }}
+    {{- if .Values.mariadb.secondary.service.extraPorts }}
+    {{- include "common.tplvalues.render" (dict "value" .Values.mariadb.secondary.service.extraPorts "context" $) | nindent 4 }}
+    {{- end }}
+  {{- $podLabels := include "common.tplvalues.merge" ( dict "values" ( list .Values.mariadb.secondary.podLabels .Values.mariadb.commonLabels ) "context" . ) }}
+  selector: {{- include "common.labels.matchLabels" ( dict "customLabels" $podLabels "context" $ ) | nindent 4 }}
+    app.kubernetes.io/part-of: mariadb
+    app.kubernetes.io/component: secondary
+{{- end }}
+{{- end }}

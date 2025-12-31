@@ -1,0 +1,79 @@
+{{- if .Values.mariadb.enabled }}
+{{- /*
+Copyright Broadcom, Inc. All Rights Reserved.
+SPDX-License-Identifier: APACHE-2.0
+*/}}
+
+{{- if .Values.mariadb.networkPolicy.enabled }}
+kind: NetworkPolicy
+apiVersion: {{ template "common.capabilities.networkPolicy.apiVersion" . }}
+metadata:
+  name: {{ printf "%s-mariadb" (include "common.names.fullname" .) }}
+  namespace: {{ include "common.names.namespace" . | quote }}
+  labels: {{- include "common.labels.standard" ( dict "customLabels" .Values.mariadb.commonLabels "context" $ ) | nindent 4 }}
+    app.kubernetes.io/part-of: mariadb
+  {{- if .Values.mariadb.commonAnnotations }}
+  annotations: {{- include "common.tplvalues.render" ( dict "value" .Values.mariadb.commonAnnotations "context" $ ) | nindent 4 }}
+  {{- end }}
+spec:
+  podSelector:
+    matchLabels: {{- include "common.labels.standard" ( dict "customLabels" .Values.mariadb.commonLabels "context" $ ) | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  {{- if .Values.mariadb.networkPolicy.allowExternalEgress }}
+  egress:
+    - {}
+  {{- else }}
+  egress:
+    # Allow dns resolution
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    # Allow connection to other cluster pods
+    - ports:
+        - port: {{ .Values.mariadb.primary.containerPorts.mysql }}
+        - port: {{ .Values.mariadb.secondary.containerPorts.mysql }}
+      to:
+        - podSelector:
+            matchLabels: {{- include "common.labels.matchLabels" ( dict "customLabels" .Values.mariadb.commonLabels "context" $ ) | nindent 14 }}
+    {{- if .Values.mariadb.networkPolicy.extraEgress }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.mariadb.networkPolicy.extraEgress "context" $ ) | nindent 4 }}
+    {{- end }}
+  {{- end }}
+  ingress:
+    - ports:
+        - port: {{ .Values.mariadb.primary.containerPorts.mysql }}
+        - port: {{ .Values.mariadb.secondary.containerPorts.mysql }}
+      {{- if .Values.mariadb.metrics.enabled }}
+        - port: {{ .Values.mariadb.metrics.containerPorts.http }}
+      {{- end }}
+      {{- if not .Values.mariadb.networkPolicy.allowExternal }}
+      from:
+        - podSelector:
+            matchLabels:
+              {{ template "common.names.fullname" . }}-client: "true"
+        - podSelector:
+            matchLabels: {{- include "common.labels.matchLabels" ( dict "customLabels" .Values.mariadb.commonLabels "context" $ ) | nindent 14 }}
+        {{- if .Values.mariadb.networkPolicy.ingressNSMatchLabels }}
+        - namespaceSelector:
+            matchLabels:
+              {{- range $key, $value := .Values.mariadb.networkPolicy.ingressNSMatchLabels }}
+              {{ $key | quote }}: {{ $value | quote }}
+              {{- end }}
+          {{- if .Values.mariadb.networkPolicy.ingressNSPodMatchLabels }}
+          podSelector:
+            matchLabels:
+              {{- range $key, $value := .Values.mariadb.networkPolicy.ingressNSPodMatchLabels }}
+              {{ $key | quote }}: {{ $value | quote }}
+              {{- end }}
+          {{- end }}
+        {{- end }}
+      {{- end }}
+    {{- if .Values.mariadb.networkPolicy.extraIngress }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.mariadb.networkPolicy.extraIngress "context" $ ) | nindent 4 }}
+    {{- end }}
+{{- end }}
+{{- end }}

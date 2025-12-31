@@ -1,0 +1,104 @@
+CHART NAME: {{ .Chart.Name }}
+CHART VERSION: {{ .Chart.Version }}
+APP VERSION: {{ .Chart.AppVersion }}
+
+** Please be patient while the chart is being deployed **
+
+{{- if or .Values.mariadb.enabled .Values.externalDatabase.host }}
+
+1. Get your MediaWiki login credentials by running:
+
+    echo Username: {{ .Values.mediawikiUser }}
+    echo Password: $(microk8s kubectl get secret --namespace {{ .Release.Namespace }} {{ template "common.names.fullname" . }} -o jsonpath="{.data.mediawiki-password}" | base64 -d)
+
+2. Access MediaWiki:
+
+{{- if .Values.ingress.enabled }}
+
+   Visit: http{{ if .Values.ingress.tls }}s{{ end }}://{{ .Values.ingress.hostname }}
+
+{{- else if contains "NodePort" .Values.service.type }}
+
+   export NODE_PORT=$(microk8s kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ template "common.names.fullname" . }})
+   export NODE_IP=$(microk8s kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
+   echo "MediaWiki URL: http://$NODE_IP:$NODE_PORT/"
+
+{{- else if contains "LoadBalancer" .Values.service.type }}
+
+   NOTE: It may take a few minutes for the LoadBalancer IP to be available.
+         Watch the status with: 'microk8s kubectl get svc --namespace {{ .Release.Namespace }} -w {{ template "common.names.fullname" . }}'
+
+   export SERVICE_IP=$(microk8s kubectl get svc --namespace {{ .Release.Namespace }} {{ template "common.names.fullname" . }} --template "{{ "{{ range (index .status.loadBalancer.ingress 0) }}{{ . }}{{ end }}" }}")
+   {{- $port:= ( coalesce .Values.service.ports.http .Values.service.port) | toString }}
+   echo "MediaWiki URL: http://$SERVICE_IP{{- if ne $port "80" }}:{{ coalesce .Values.service.ports.http .Values.service.port }}{{ end }}/"
+
+{{- else if contains "ClusterIP" .Values.service.type }}
+
+   Use port-forward to access MediaWiki:
+
+   microk8s kubectl port-forward --namespace {{ .Release.Namespace }} svc/{{ template "common.names.fullname" . }} 8080:{{ coalesce .Values.service.ports.http .Values.service.port }}
+
+   Then visit: http://localhost:8080
+
+{{- end }}
+
+{{- if empty (include "mediawiki.host" .) }}
+
+********************************************************************************
+*** OPTIONAL: Configure external hostname for production use                ***
+********************************************************************************
+
+MediaWiki is running but doesn't have an external hostname configured.
+This is fine for local development, but for production you should set:
+
+  --set mediawikiHost=your-domain.com
+
+Or enable Ingress:
+
+  --set ingress.enabled=true,ingress.hostname=your-domain.com
+
+{{- end }}
+
+3. Database Information:
+
+{{- if .Values.mariadb.enabled }}
+
+   MariaDB is running as part of this deployment.
+   Database credentials are automatically managed in Kubernetes secrets.
+
+   To get the MariaDB root password:
+   microk8s kubectl get secret --namespace {{ .Release.Namespace }} {{ template "mediawiki.mariadb.fullname" . }} -o jsonpath="{.data.mariadb-root-password}" | base64 -d
+
+{{- else }}
+
+   Using external database: {{ .Values.externalDatabase.host }}:{{ .Values.externalDatabase.port }}
+
+{{- end }}
+
+4. Upgrading this release:
+
+   Passwords are automatically managed. To upgrade:
+
+   microk8s helm upgrade {{ .Release.Name }} ./mediawiki/
+
+{{- else }}
+
+********************************************************************************
+### ERROR: No database configured                                           ***
+********************************************************************************
+
+This deployment will be incomplete until you configure a database.
+Either enable the bundled MariaDB:
+
+  --set mariadb.enabled=true
+
+Or configure an external database:
+
+  --set mariadb.enabled=false,externalDatabase.host=YOUR_DB_HOST
+
+{{- end }}
+
+{{- include "mediawiki.checkRollingTags" . }}
+{{- include "mediawiki.validateValues" . }}
+{{- include "common.warnings.resources" (dict "sections" (list "metrics" "") "context" $) }}
+{{- include "common.warnings.modifiedImages" (dict "images" (list .Values.image .Values.metrics.image) "context" $) }}

@@ -1,0 +1,35 @@
+annotations:
+  category: Wiki
+  images: |
+    - name: apache-exporter
+      image: docker.io/bitnami/apache-exporter:1.0.8-debian-12-r6
+    - name: mediawiki
+      image: docker.io/bitnami/mediawiki:1.42.1-debian-12-r3
+    - name: mariadb
+      image: docker.io/bitnami/mariadb:11.4.2-debian-12-r1
+    - name: mysqld-exporter
+      image: docker.io/bitnami/mysqld-exporter:0.15.1-debian-12-r27
+    - name: os-shell
+      image: docker.io/bitnami/os-shell:12-debian-12-r25
+  licenses: Apache-2.0
+apiVersion: v2
+appVersion: 1.42.1
+description: MediaWiki is the free and open source wiki software that powers Wikipedia.
+  Used by thousands of organizations, it is extremely powerful, scalable software
+  and a feature-rich wiki implementation.
+home: https://bitnami.com
+icon: https://bitnami.com/assets/stacks/mediawiki/img/mediawiki-stack-220x234.png
+keywords:
+- mediawiki
+- wiki
+- http
+- web
+- application
+- php
+maintainers:
+- name: Broadcom, Inc. All Rights Reserved.
+  url: https://github.com/bitnami/charts
+name: mediawiki
+sources:
+- https://github.com/bitnami/charts/tree/main/bitnami/mediawiki
+version: 21.0.4
