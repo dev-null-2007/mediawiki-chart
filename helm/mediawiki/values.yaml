@@ -65,12 +65,12 @@ extraDeploy: []
 ## @param image.debug Enable MediaWiki image debug mode
 ##
 image:
-  registry: docker.io
-  #repository: bitnami/mediawiki
+  registry: localhost:32000
   repository: mediawiki
-  #tag: 1.42.1-debian-12-r3
-  tag: 1.45.1
-  #digest: "sha256:3f8baaf1daa8a6885281124d8fb41399a983131c6fbd2c47ea37486a3cfa111f"
+  tag: 1.45.1-intl
+  # Custom image with required intl extension
+  # To rebuild: cd docker && ./build.sh
+  digest: ""
   ## Specify a imagePullPolicy
   ## Defaults to 'Always' if image tag is 'latest', else set to 'IfNotPresent'
   ## ref: https://kubernetes.io/docs/concepts/containers/images/#pre-pulled-images
@@ -124,6 +124,17 @@ mediawikiName: My Wiki
 ## ref: https://github.com/bitnami/containers/tree/main/bitnami/mediawiki#configuration
 ##
 mediawikiHost: "localhost"
+## @param mediawikiCustomSettings Custom PHP code to include in LocalSettings.php
+## This will be added to LocalSettings.custom.php which is included by the auto-generated LocalSettings.php
+## Example:
+##   mediawikiCustomSettings: |
+##     # Enable file uploads
+##     $wgEnableUploads = true;
+##     # Set timezone
+##     $wgLocaltimezone = "America/New_York";
+##
+mediawikiCustomSettings: |
+  # Custom mediawiki settings go here
 ## @param allowEmptyPassword Allow DB blank passwords
 ## ref: https://github.com/bitnami/containers/tree/main/bitnami/mediawiki#environment-variables
 ##

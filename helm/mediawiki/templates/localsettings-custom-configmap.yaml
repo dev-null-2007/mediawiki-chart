@@ -1,0 +1,35 @@
+{{- /*
+Copyright Broadcom, Inc. All Rights Reserved.
+SPDX-License-Identifier: APACHE-2.0
+*/}}
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "common.names.fullname" . }}-localsettings-custom
+  namespace: {{ .Release.Namespace | quote }}
+  labels: {{- include "common.labels.standard" ( dict "customLabels" .Values.commonLabels "context" $ ) | nindent 4 }}
+data:
+  LocalSettings.custom.php: |
+    <?php
+    # Custom MediaWiki configuration
+    # This file is included by LocalSettings.php
+    # Add your custom settings below
+
+    # Example: Enable file uploads
+    # $wgEnableUploads = true;
+    # $wgFileExtensions = array_merge( $wgFileExtensions, array( 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx' ) );
+
+    # Example: Set timezone
+    # $wgLocaltimezone = "UTC";
+
+    # Example: Enable additional extensions
+    # wfLoadExtension( 'VisualEditor' );
+
+    # Example: Configure logo
+    # $wgLogo = "$wgResourceBasePath/resources/assets/wiki.png";
+
+    # Add your custom configuration here
+    {{- if .Values.mediawikiCustomSettings }}
+    {{- .Values.mediawikiCustomSettings | nindent 4 }}
+    {{- end }}
