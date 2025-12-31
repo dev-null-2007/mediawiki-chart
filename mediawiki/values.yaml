@@ -66,9 +66,11 @@ extraDeploy: []
 ##
 image:
   registry: docker.io
-  repository: bitnami/mediawiki
-  tag: 1.42.1-debian-12-r3
-  digest: ""
+  #repository: bitnami/mediawiki
+  repository: mediawiki
+  #tag: 1.42.1-debian-12-r3
+  tag: 1.45.1
+  #digest: "sha256:3f8baaf1daa8a6885281124d8fb41399a983131c6fbd2c47ea37486a3cfa111f"
   ## Specify a imagePullPolicy
   ## Defaults to 'Always' if image tag is 'latest', else set to 'IfNotPresent'
   ## ref: https://kubernetes.io/docs/concepts/containers/images/#pre-pulled-images
@@ -121,7 +123,7 @@ mediawikiName: My Wiki
 ## @param mediawikiHost Mediawiki host to create application URLs
 ## ref: https://github.com/bitnami/containers/tree/main/bitnami/mediawiki#configuration
 ##
-mediawikiHost: ""
+mediawikiHost: "localhost"
 ## @param allowEmptyPassword Allow DB blank passwords
 ## ref: https://github.com/bitnami/containers/tree/main/bitnami/mediawiki#environment-variables
 ##
@@ -185,7 +187,7 @@ podSecurityContext:
   fsGroupChangePolicy: Always
   sysctls: []
   supplementalGroups: []
-  fsGroup: 1001
+  fsGroup: 33
 ## Mediawiki containers' SecurityContext
 ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
 ## @param containerSecurityContext.enabled Enabled containers' Security Context
@@ -202,11 +204,11 @@ podSecurityContext:
 containerSecurityContext:
   enabled: true
   seLinuxOptions: {}
-  runAsUser: 1001
-  runAsGroup: 1001
+  runAsUser: 33
+  runAsGroup: 33
   runAsNonRoot: true
   privileged: false
-  readOnlyRootFilesystem: true
+  readOnlyRootFilesystem: false
   allowPrivilegeEscalation: false
   capabilities:
     drop: ["ALL"]
@@ -753,8 +755,9 @@ mariadb:
   image:
     registry: docker.io
     repository: bitnami/mariadb
-    tag: 11.4.2-debian-12-r1
-    digest: ""
+    #tag: 11.4.2-debian-12-r1
+    digest: "sha256:8a3182c7b4adaa837044231dae71529c0519f948b0e690a6a3dfbc13a163ae2f"
+
     ## Specify a imagePullPolicy
     ## ref: https://kubernetes.io/docs/concepts/containers/images/#pre-pulled-images
     ##

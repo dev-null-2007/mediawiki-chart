@@ -81,6 +81,17 @@ Or enable Ingress:
 
    microk8s helm upgrade {{ .Release.Name }} ./mediawiki/
 
+   If you get password validation errors during upgrade, you can explicitly provide them:
+
+   MARIADB_ROOT_PASSWORD=$(microk8s kubectl get secret --namespace {{ .Release.Namespace }} {{ template "mediawiki.mariadb.fullname" . }} -o jsonpath="{.data.mariadb-root-password}" | base64 -d)
+   MARIADB_PASSWORD=$(microk8s kubectl get secret --namespace {{ .Release.Namespace }} {{ template "mediawiki.mariadb.fullname" . }} -o jsonpath="{.data.mariadb-password}" | base64 -d)
+   MEDIAWIKI_PASSWORD=$(microk8s kubectl get secret --namespace {{ .Release.Namespace }} {{ template "common.names.fullname" . }} -o jsonpath="{.data.mediawiki-password}" | base64 -d)
+
+   microk8s helm upgrade {{ .Release.Name }} ./mediawiki/ \
+     --set mariadb.auth.rootPassword="$MARIADB_ROOT_PASSWORD" \
+     --set mariadb.auth.password="$MARIADB_PASSWORD" \
+     --set mediawikiPassword="$MEDIAWIKI_PASSWORD"
+
 {{- else }}
 
 ********************************************************************************

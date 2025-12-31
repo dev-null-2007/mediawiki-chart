@@ -1,0 +1,25 @@
+{{- /*
+Copyright Broadcom, Inc. All Rights Reserved.
+SPDX-License-Identifier: APACHE-2.0
+*/}}
+
+{{- if and (include "mediawiki.host" .) (or .Values.mariadb.enabled .Values.externalDatabase.host) -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "common.names.fullname" . }}-apache-config
+  namespace: {{ .Release.Namespace | quote }}
+  labels: {{- include "common.labels.standard" ( dict "customLabels" .Values.commonLabels "context" $ ) | nindent 4 }}
+data:
+  ports.conf: |
+    # Custom ports configuration for non-privileged user
+    Listen {{ .Values.containerPorts.http }}
+
+    <IfModule ssl_module>
+        Listen {{ .Values.containerPorts.https }}
+    </IfModule>
+
+    <IfModule mod_gnutls.c>
+        Listen {{ .Values.containerPorts.https }}
+    </IfModule>
+{{- end }}

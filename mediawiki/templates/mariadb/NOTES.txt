@@ -80,7 +80,7 @@ To upgrade this helm chart:
 {{- include "common.warnings.rollingTag" .Values.mariadb.volumePermissions.image }}
 {{- include "mariadb.validateValues" . }}
 {{- if not .Values.mariadb.auth.customPasswordFiles -}}
-  {{- $passwordValidationErrors := include "common.validations.values.mariadb.passwords" (dict "secret" (include "common.names.fullname" .) "context" $) -}}
+  {{- $passwordValidationErrors := include "common.validations.values.mariadb.passwords" (dict "secret" (include "mariadb.secretName" .) "context" $) -}}
   {{- include "common.errors.upgrade.passwords.empty" (dict "validationErrors" (list $passwordValidationErrors) "context" $) -}}
 {{- end }}
 {{- end }}

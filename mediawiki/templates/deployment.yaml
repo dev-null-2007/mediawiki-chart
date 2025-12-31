@@ -82,24 +82,46 @@ spec:
             - -ec
             - |
               #!/bin/bash
+              echo "Preparing directories for MediaWiki..."
+              # Ensure required directories exist with proper permissions
+              mkdir -p /emptydir/apache-conf-dir /emptydir/apache-logs-dir /emptydir/apache-tmp-dir
+              mkdir -p /emptydir/php-conf-dir /emptydir/php-tmp-dir /emptydir/php-var-dir
+              mkdir -p /emptydir/tmp-dir
 
-              . /opt/bitnami/scripts/liblog.sh
-              . /opt/bitnami/scripts/libfs.sh
+              # Wait for persistent volume to be ready (avoid timing issues)
+              echo "Waiting for persistent volume to be ready..."
+              timeout=30
+              while [ $timeout -gt 0 ]; do
+                if touch /mediawiki-data/.volume-test 2>/dev/null; then
+                  rm -f /mediawiki-data/.volume-test
+                  echo "Persistent volume is ready"
+                  break
+                fi
+                echo "Volume not ready, waiting... ($timeout seconds remaining)"
+                sleep 1
+                timeout=$((timeout-1))
+              done
 
-              info "Copying base dir to empty dir"
-              # In order to not break the application functionality (such as upgrades or plugins) we need
-              # to make the base directory writable, so we need to copy it to an empty dir volume
-              cp -r --preserve=mode /opt/bitnami/mediawiki /emptydir/app-base-dir
-
-              info "Copying symlinks to stdout/stderr"
-              # We copy the logs folder because it has symlinks to stdout and stderr
-              if ! is_dir_empty /opt/bitnami/apache/logs; then
-                cp -r /opt/bitnami/apache/logs /emptydir/apache-logs-dir
+              if [ $timeout -eq 0 ]; then
+                echo "ERROR: Persistent volume failed to become ready"
+                exit 1
               fi
-              info "Copy operation completed"
+
+              # Copy MediaWiki files to persistent volume if not already present
+              if [ ! -f /mediawiki-data/index.php ]; then
+                echo "Copying MediaWiki installation to persistent volume..."
+                cp -a /var/www/html/. /mediawiki-data/
+                echo "MediaWiki files copied successfully"
+              else
+                echo "MediaWiki files already present in persistent volume"
+              fi
+              echo "Directory preparation completed"
           volumeMounts:
             - name: empty-dir
               mountPath: /emptydir
+            - name: mediawiki-data
+              mountPath: /mediawiki-data
+              subPath: mediawiki
         {{- if .Values.initContainers }}
         {{- include "common.tplvalues.render" (dict "value" .Values.initContainers "context" $) | nindent 8 }}
         {{- end }}
@@ -120,37 +142,37 @@ spec:
           lifecycle: {{- include "common.tplvalues.render" (dict "value" .Values.lifecycleHooks "context" $) | nindent 12 }}
           {{- end }}
           env:
-            - name: BITNAMI_DEBUG
-              value: {{ ternary "true" "false" .Values.image.debug | quote }}
-            - name: ALLOW_EMPTY_PASSWORD
-              value: {{ .Values.allowEmptyPassword | quote }}
-            - name: MARIADB_HOST
+            - name: MEDIAWIKI_DB_TYPE
+              value: "mysql"
+            - name: MEDIAWIKI_DB_HOST
               value: {{ include "mediawiki.databaseHost" . | quote }}
-            - name: MARIADB_PORT_NUMBER
+            - name: MEDIAWIKI_DB_PORT
               value: {{ include "mediawiki.databasePort" . | quote }}
-            - name: MEDIAWIKI_DATABASE_NAME
+            - name: MEDIAWIKI_DB_NAME
               value: {{ include "mediawiki.databaseName" . | quote }}
-            - name: MEDIAWIKI_DATABASE_USER
+            - name: MEDIAWIKI_DB_USER
               value: {{ include "mediawiki.databaseUser" . | quote }}
-            - name: MEDIAWIKI_DATABASE_PASSWORD
+            - name: MEDIAWIKI_DB_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: {{ include "mediawiki.databaseSecretName" . }}
                   key: mariadb-password
             {{- $port:= ( coalesce .Values.service.ports.http .Values.service.port) | toString }}
-            - name: MEDIAWIKI_HOST
-              value: "{{ include "mediawiki.host" . }}{{- if ne $port "80" }}:{{ coalesce .Values.service.ports.http .Values.service.port }}{{ end }}"
-            - name: MEDIAWIKI_USERNAME
+            - name: MEDIAWIKI_SITE_SERVER
+              value: "http://{{ include "mediawiki.host" . }}{{- if ne $port "80" }}:{{ coalesce .Values.service.ports.http .Values.service.port }}{{ end }}"
+            - name: MEDIAWIKI_SITE_NAME
+              value: {{ .Values.mediawikiName | quote }}
+            - name: MEDIAWIKI_ADMIN_USER
               value: {{ .Values.mediawikiUser | quote }}
-            - name: MEDIAWIKI_PASSWORD
+            - name: MEDIAWIKI_ADMIN_PASS
               valueFrom:
                 secretKeyRef:
                   name: {{ include "mediawiki.secretName" . }}
                   key: mediawiki-password
+            {{- if .Values.mediawikiEmail }}
             - name: MEDIAWIKI_EMAIL
               value: {{ .Values.mediawikiEmail | quote }}
-            - name: MEDIAWIKI_WIKI_NAME
-              value: {{ .Values.mediawikiName | quote }}
+            {{- end }}
             {{- if .Values.smtpHostID }}
             - name: SMTP_HOST_ID
               value: {{ .Values.smtpHostID | quote }}
@@ -174,10 +196,6 @@ spec:
                   name: {{ include "mediawiki.secretName" . }}
                   key: smtp-password
             {{- end }}
-            - name: APACHE_HTTP_PORT_NUMBER
-              value: {{ .Values.containerPorts.http | quote }}
-            - name: APACHE_HTTPS_PORT_NUMBER
-              value: {{ .Values.containerPorts.https | quote }}
             {{- if .Values.extraEnvVars }}
             {{- include "common.tplvalues.render" (dict "value" .Values.extraEnvVars "context" $) | nindent 12 }}
             {{- end }}
@@ -222,32 +240,26 @@ spec:
           {{- end }}
           volumeMounts:
             - name: empty-dir
-              mountPath: /opt/bitnami/apache/conf
+              mountPath: /etc/apache2/sites-enabled
               subPath: apache-conf-dir
             - name: empty-dir
-              mountPath: /opt/bitnami/apache/logs
+              mountPath: /var/log/apache2
               subPath: apache-logs-dir
             - name: empty-dir
-              mountPath: /opt/bitnami/apache/var/run
+              mountPath: /var/run/apache2
               subPath: apache-tmp-dir
             - name: empty-dir
-              mountPath: /opt/bitnami/php/etc
+              mountPath: /usr/local/etc/php/conf.d
               subPath: php-conf-dir
-            - name: empty-dir
-              mountPath: /opt/bitnami/php/tmp
-              subPath: php-tmp-dir
-            - name: empty-dir
-              mountPath: /opt/bitnami/php/var
-              subPath: php-var-dir
             - name: empty-dir
               mountPath: /tmp
               subPath: tmp-dir
-            - name: empty-dir
-              mountPath: /opt/bitnami/mediawiki
-              subPath: app-base-dir
-            - mountPath: /bitnami/mediawiki
-              name: mediawiki-data
+            - name: mediawiki-data
+              mountPath: /var/www/html
               subPath: mediawiki
+            - name: apache-config
+              mountPath: /etc/apache2/ports.conf
+              subPath: ports.conf
             {{- if .Values.extraVolumeMounts }}
             {{- include "common.tplvalues.render" (dict "value" .Values.extraVolumeMounts "context" $) | nindent 12 }}
             {{- end }}
@@ -294,6 +306,9 @@ spec:
           {{- else }}
           emptyDir: {}
           {{- end }}
+        - name: apache-config
+          configMap:
+            name: {{ template "common.names.fullname" . }}-apache-config
         {{- if .Values.extraVolumes }}
         {{- include "common.tplvalues.render" (dict "value" .Values.extraVolumes "context" $) | nindent 8 }}
         {{- end }}
