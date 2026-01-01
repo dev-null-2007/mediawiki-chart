@@ -753,11 +753,11 @@ mariadb:
   ## @section MariaDB common parameters
   ##
   
-  ## Bitnami MariaDB image
-  ## ref: https://hub.docker.com/r/bitnami/mariadb/tags/
+  ## Official MariaDB image
+  ## ref: https://hub.docker.com/_/mariadb
   ## @param image.registry [default: REGISTRY_NAME] MariaDB image registry
   ## @param image.repository [default: REPOSITORY_NAME/mariadb] MariaDB image repository
-  ## @skip image.tag MariaDB image tag (immutable tags are recommended)
+  ## @param image.tag MariaDB image tag
   ## @param image.digest MariaDB image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag
   ## @param image.pullPolicy MariaDB image pull policy
   ## @param image.pullSecrets Specify docker-registry secret names as an array
@@ -765,9 +765,9 @@ mariadb:
   ##
   image:
     registry: docker.io
-    repository: bitnami/mariadb
-    #tag: 11.4.2-debian-12-r1
-    digest: "sha256:8a3182c7b4adaa837044231dae71529c0519f948b0e690a6a3dfbc13a163ae2f"
+    repository: mariadb
+    tag: "12.1.2"
+    digest: ""
 
     ## Specify a imagePullPolicy
     ## ref: https://kubernetes.io/docs/concepts/containers/images/#pre-pulled-images
@@ -974,16 +974,15 @@ mariadb:
       [mysqld]
       skip-name-resolve
       explicit_defaults_for_timestamp
-      basedir=/opt/bitnami/mariadb
-      datadir=/bitnami/mariadb/data
-      plugin_dir=/opt/bitnami/mariadb/plugin
+      basedir=/usr
+      datadir=/var/lib/mysql
+      plugin_dir=/usr/lib/mysql/plugin
       port={{ .Values.mariadb.primary.containerPorts.mysql }}
-      socket=/opt/bitnami/mariadb/tmp/mysql.sock
-      tmpdir=/opt/bitnami/mariadb/tmp
+      socket=/run/mysqld/mysqld.sock
+      tmpdir=/tmp
       max_allowed_packet=16M
       bind-address=*
-      pid-file=/opt/bitnami/mariadb/tmp/mysqld.pid
-      log-error=/opt/bitnami/mariadb/logs/mysqld.log
+      pid-file=/run/mysqld/mysqld.pid
       character-set-server=UTF8
       collation-server=utf8_general_ci
       slow_query_log=0
@@ -1013,14 +1012,14 @@ mariadb:
   
       [client]
       port=3306
-      socket=/opt/bitnami/mariadb/tmp/mysql.sock
+      socket=/run/mysqld/mysqld.sock
       default-character-set=UTF8
-      plugin_dir=/opt/bitnami/mariadb/plugin
-  
+      plugin_dir=/usr/lib/mysql/plugin
+
       [manager]
       port=3306
-      socket=/opt/bitnami/mariadb/tmp/mysql.sock
-      pid-file=/opt/bitnami/mariadb/tmp/mysqld.pid
+      socket=/run/mysqld/mysqld.sock
+      pid-file=/run/mysqld/mysqld.pid
     ## @param primary.existingConfigmap Name of existing ConfigMap with MariaDB Primary configuration.
     ## NOTE: When it's set the 'configuration' parameter is ignored
     ##
@@ -1127,29 +1126,29 @@ mariadb:
       fsGroupChangePolicy: Always
       sysctls: []
       supplementalGroups: []
-      fsGroup: 1001
+      fsGroup: 999
     ## MariaDB primary container security context
     ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-container
     ## @param primary.containerSecurityContext.enabled MariaDB primary container securityContext
     ## @param primary.containerSecurityContext.seLinuxOptions [object,nullable] Set SELinux options in container
-    ## @param primary.containerSecurityContext.runAsUser User ID for the MariaDB primary container
+    ## @param primary.containerSecurityContext.runAsUser User ID for the MariaDB primary container (999 = mysql user in official image)
     ## @param primary.containerSecurityContext.runAsGroup Group ID for the MariaDB primary container
     ## @param primary.containerSecurityContext.runAsNonRoot Set primary container's Security Context runAsNonRoot
     ## @param primary.containerSecurityContext.privileged Set primary container's Security Context privileged
     ## @param primary.containerSecurityContext.allowPrivilegeEscalation Set primary container's Security Context allowPrivilegeEscalation
-    ## @param primary.containerSecurityContext.readOnlyRootFilesystem Set container's Security Context readOnlyRootFilesystem
+    ## @param primary.containerSecurityContext.readOnlyRootFilesystem Set container's Security Context readOnlyRootFilesystem (false for official MariaDB - needs /tmp writable)
     ## @param primary.containerSecurityContext.capabilities.drop List of capabilities to be dropped
     ## @param primary.containerSecurityContext.seccompProfile.type Set container's Security Context seccomp profile
     ##
     containerSecurityContext:
       enabled: true
       seLinuxOptions: {}
-      runAsUser: 1001
-      runAsGroup: 1001
+      runAsUser: 999
+      runAsGroup: 999
       runAsNonRoot: true
       privileged: false
       allowPrivilegeEscalation: false
-      readOnlyRootFilesystem: true
+      readOnlyRootFilesystem: false
       capabilities:
         drop: ["ALL"]
       seccompProfile:
@@ -1430,15 +1429,16 @@ mariadb:
       [mysqld]
       skip-name-resolve
       explicit_defaults_for_timestamp
-      basedir=/opt/bitnami/mariadb
-      datadir=/bitnami/mariadb/data
+      basedir=/usr
+      datadir=/var/lib/mysql
+      plugin_dir=/usr/lib/mysql/plugin
       port={{ .Values.mariadb.secondary.containerPorts.mysql }}
-      socket=/opt/bitnami/mariadb/tmp/mysql.sock
-      tmpdir=/opt/bitnami/mariadb/tmp
+      socket=/run/mysqld/mysqld.sock
+      tmpdir=/tmp
       max_allowed_packet=16M
-      bind-address=0.0.0.0
-      pid-file=/opt/bitnami/mariadb/tmp/mysqld.pid
-      log-error=/opt/bitnami/mariadb/logs/mysqld.log
+      bind-address=*
+      pid-file=/run/mysqld/mysqld.pid
+      log-error=/var/log/mysql/error.log
       character-set-server=UTF8
       collation-server=utf8_general_ci
       slow_query_log=0
@@ -1451,16 +1451,17 @@ mariadb:
       ssl_ca=/opt/bitnami/mariadb/certs/ca.crt
       {{- end }}
       {{- end }}
-  
+
       [client]
       port=3306
-      socket=/opt/bitnami/mariadb/tmp/mysql.sock
+      socket=/run/mysqld/mysqld.sock
       default-character-set=UTF8
-  
+      plugin_dir=/usr/lib/mysql/plugin
+
       [manager]
       port=3306
-      socket=/opt/bitnami/mariadb/tmp/mysql.sock
-      pid-file=/opt/bitnami/mariadb/tmp/mysqld.pid
+      socket=/run/mysqld/mysqld.sock
+      pid-file=/run/mysqld/mysqld.pid
     ## @param secondary.existingConfigmap Name of existing ConfigMap with MariaDB Secondary configuration.
     ## NOTE: When it's set the 'configuration' parameter is ignored
     ##
@@ -1567,29 +1568,29 @@ mariadb:
       fsGroupChangePolicy: Always
       sysctls: []
       supplementalGroups: []
-      fsGroup: 1001
+      fsGroup: 999
     ## MariaDB secondary container security context
     ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-container
     ## @param secondary.containerSecurityContext.enabled MariaDB secondary container securityContext
     ## @param secondary.containerSecurityContext.seLinuxOptions [object,nullable] Set SELinux options in container
-    ## @param secondary.containerSecurityContext.runAsUser User ID for the MariaDB secondary container
+    ## @param secondary.containerSecurityContext.runAsUser User ID for the MariaDB secondary container (999 = mysql user in official image)
     ## @param secondary.containerSecurityContext.runAsGroup Group ID for the MariaDB secondary container
     ## @param secondary.containerSecurityContext.runAsNonRoot Set secondary container's Security Context runAsNonRoot
     ## @param secondary.containerSecurityContext.privileged Set secondary container's Security Context privileged
     ## @param secondary.containerSecurityContext.allowPrivilegeEscalation Set secondary container's Security Context allowPrivilegeEscalation
-    ## @param secondary.containerSecurityContext.readOnlyRootFilesystem Set container's Security Context readOnlyRootFilesystem
+    ## @param secondary.containerSecurityContext.readOnlyRootFilesystem Set container's Security Context readOnlyRootFilesystem (false for official MariaDB - needs /tmp writable)
     ## @param secondary.containerSecurityContext.capabilities.drop List of capabilities to be dropped
     ## @param secondary.containerSecurityContext.seccompProfile.type Set container's Security Context seccomp profile
     ##
     containerSecurityContext:
       enabled: true
       seLinuxOptions: {}
-      runAsUser: 1001
-      runAsGroup: 1001
+      runAsUser: 999
+      runAsGroup: 999
       runAsNonRoot: true
       privileged: false
       allowPrivilegeEscalation: false
-      readOnlyRootFilesystem: true
+      readOnlyRootFilesystem: false
       capabilities:
         drop: ["ALL"]
       seccompProfile:
@@ -1896,8 +1897,8 @@ mariadb:
     containerSecurityContext:
       enabled: true
       seLinuxOptions: {}
-      runAsUser: 1001
-      runAsGroup: 1001
+      runAsUser: 999
+      runAsGroup: 999
       runAsNonRoot: true
       privileged: false
       readOnlyRootFilesystem: true
@@ -1919,7 +1920,7 @@ mariadb:
       fsGroupChangePolicy: Always
       sysctls: []
       supplementalGroups: []
-      fsGroup: 1001
+      fsGroup: 999
     ## @param passwordUpdateJob.extraEnvVars Array containing extra env vars to configure the credential init job
     ## For example:
     ## extraEnvVars:
@@ -2148,8 +2149,8 @@ mariadb:
       privileged: false
       runAsNonRoot: true
       seLinuxOptions: {}
-      runAsUser: 1001
-      runAsGroup: 1001
+      runAsUser: 999
+      runAsGroup: 999
       readOnlyRootFilesystem: true
       allowPrivilegeEscalation: false
       capabilities:
