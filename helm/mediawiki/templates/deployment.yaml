@@ -146,44 +146,59 @@ spec:
               # Copy MediaWiki files to persistent volume if not already present
               if [ ! -f /mediawiki-data/index.php ]; then
                 echo "Copying MediaWiki installation to persistent volume..."
-                cp -a /var/www/html/. /mediawiki-data/
+                # Use -r instead of -a to avoid permission errors on persistent volumes
+                # The container runs as www-data, permissions will be correct anyway
+                cp -r /var/www/html/. /mediawiki-data/
                 echo "MediaWiki files copied successfully"
               else
                 echo "MediaWiki files already present in persistent volume"
               fi
 
-              # Generate LocalSettings.php if not present
-              if [ ! -f /mediawiki-data/LocalSettings.php ]; then
-                echo "Generating LocalSettings.php..."
-                cd /mediawiki-data
-                php maintenance/install.php \
-                  --dbtype=mysql \
-                  --dbserver="${MEDIAWIKI_DB_HOST}:${MEDIAWIKI_DB_PORT}" \
-                  --dbname="${MEDIAWIKI_DB_NAME}" \
-                  --dbuser="${MEDIAWIKI_DB_USER}" \
-                  --dbpass="${MEDIAWIKI_DB_PASSWORD}" \
-                  --server="${MEDIAWIKI_SITE_SERVER}" \
-                  --scriptpath="" \
-                  --pass="${MEDIAWIKI_ADMIN_PASS}" \
-                  "${MEDIAWIKI_SITE_NAME}" \
-                  "${MEDIAWIKI_ADMIN_USER}"
+              # Generate LocalSettings.php (always regenerate to pick up configuration changes)
+              echo "Generating LocalSettings.php..."
+              cd /mediawiki-data
 
-                # Append include statement for custom settings
-                echo "" >> LocalSettings.php
-                echo "# Include custom configuration" >> LocalSettings.php
-                echo "require_once '/config/LocalSettings.custom.php';" >> LocalSettings.php
-
-                echo "LocalSettings.php generated successfully"
-              else
-                echo "LocalSettings.php already exists"
-                # Check if custom settings include is present, add if missing
-                if ! grep -q "LocalSettings.custom.php" /mediawiki-data/LocalSettings.php; then
-                  echo "Adding custom settings include to existing LocalSettings.php..."
-                  echo "" >> /mediawiki-data/LocalSettings.php
-                  echo "# Include custom configuration" >> /mediawiki-data/LocalSettings.php
-                  echo "require_once '/config/LocalSettings.custom.php';" >> /mediawiki-data/LocalSettings.php
+              # Check if database is ready before running installer
+              echo "Waiting for database to be ready..."
+              timeout=60
+              while [ $timeout -gt 0 ]; do
+                # Test TCP connectivity using bash built-in /dev/tcp
+                if timeout 2 bash -c "echo > /dev/tcp/${MEDIAWIKI_DB_HOST}/${MEDIAWIKI_DB_PORT}" 2>/dev/null; then
+                  echo "Database is ready (port ${MEDIAWIKI_DB_PORT} is open)"
+                  break
                 fi
+                echo "Database not ready, waiting... ($timeout seconds remaining)"
+                sleep 2
+                timeout=$((timeout-2))
+              done
+
+              if [ $timeout -le 0 ]; then
+                echo "ERROR: Database failed to become ready"
+                exit 1
               fi
+
+              # Remove old LocalSettings.php if it exists
+              rm -f LocalSettings.php
+
+              # Run installer to generate fresh LocalSettings.php
+              php maintenance/install.php \
+                --dbtype=mysql \
+                --dbserver="${MEDIAWIKI_DB_HOST}:${MEDIAWIKI_DB_PORT}" \
+                --dbname="${MEDIAWIKI_DB_NAME}" \
+                --dbuser="${MEDIAWIKI_DB_USER}" \
+                --dbpass="${MEDIAWIKI_DB_PASSWORD}" \
+                --server="${MEDIAWIKI_SITE_SERVER}" \
+                --scriptpath="" \
+                --pass="${MEDIAWIKI_ADMIN_PASS}" \
+                "${MEDIAWIKI_SITE_NAME}" \
+                "${MEDIAWIKI_ADMIN_USER}"
+
+              # Append include statement for custom settings
+              echo "" >> LocalSettings.php
+              echo "# Include custom configuration" >> LocalSettings.php
+              echo "require_once '/config/LocalSettings.custom.php';" >> LocalSettings.php
+
+              echo "LocalSettings.php generated successfully"
 
               echo "Directory preparation completed"
           volumeMounts:
