@@ -79,10 +79,13 @@ To upgrade this helm chart:
 {{- include "common.warnings.rollingTag" .Values.mariadb.metrics.image }}
 {{- include "common.warnings.rollingTag" .Values.mariadb.volumePermissions.image }}
 {{- include "mariadb.validateValues" . }}
+{{/*
+Password validation disabled - we use Helm lookup to automatically reuse existing passwords
 {{- if not .Values.mariadb.auth.customPasswordFiles -}}
   {{- $passwordValidationErrors := include "common.validations.values.mariadb.passwords" (dict "secret" (include "mariadb.secretName" .) "context" $) -}}
   {{- include "common.errors.upgrade.passwords.empty" (dict "validationErrors" (list $passwordValidationErrors) "context" $) -}}
 {{- end }}
+*/}}
 {{- end }}
 {{- include "common.warnings.resources" (dict "sections" (list "mariadb.metrics" "mariadb.primary" "mariadb.secondary" "mariadb.volumePermissions") "context" $) }}
 {{- include "common.warnings.modifiedImages" (dict "images" (list .Values.mariadb.image .Values.mariadb.volumePermissions.image .Values.mariadb.metrics.image) "context" $) }}
