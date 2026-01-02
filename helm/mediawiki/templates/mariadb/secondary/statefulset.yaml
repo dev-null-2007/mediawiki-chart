@@ -161,6 +161,10 @@ spec:
               {{- if .Values.mariadb.secondary.persistence.subPath }}
               subPath: {{ .Values.mariadb.secondary.persistence.subPath }}
               {{- end }}
+            - name: tmp
+              mountPath: /tmp
+            - name: run-mysqld
+              mountPath: /run/mysqld
             {{- if or .Values.mariadb.secondary.configuration .Values.mariadb.secondary.existingConfigmap }}
             - name: config
               mountPath: /etc/mysql/conf.d
@@ -172,6 +176,10 @@ spec:
         {{- include "common.tplvalues.render" (dict "value" .Values.mariadb.secondary.sidecars "context" $) | nindent 8 }}
         {{- end }}
       volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: run-mysqld
+          emptyDir: {}
         {{- if or .Values.mariadb.secondary.configuration .Values.mariadb.secondary.existingConfigmap }}
         - name: config
           configMap:

@@ -245,7 +245,13 @@ resourcesPreset: "micro"
 ##     cpu: 3
 ##     memory: 1024Mi
 ##
-resources: {}
+resources:
+  requests:
+    cpu: 1
+    memory: 512Mi
+  limits:
+    cpu: 2
+    memory: 1Gi
 ## Container ports
 ## @param containerPorts.http MediaWiki HTTP container port
 ## @param containerPorts.https MediaWiki HTTPS container port
@@ -274,17 +280,17 @@ extraContainerPorts: []
 ## @param startupProbe.successThreshold Success threshold for startupProbe
 ##
 startupProbe:
-  enabled: false
+  enabled: true
   httpGet:
     path: /api.php?action=query&meta=siteinfo&format=none
     port: http
     httpHeaders:
       - name: Host
         value: "{{ include \"mediawiki.host\" . }}"
-  initialDelaySeconds: 120
+  initialDelaySeconds: 60
   periodSeconds: 10
   timeoutSeconds: 5
-  failureThreshold: 6
+  failureThreshold: 12
   successThreshold: 1
 ## Mediawiki containers' liveness probe.
 ## Configure extra options for liveness probe
@@ -299,12 +305,16 @@ startupProbe:
 ##
 livenessProbe:
   enabled: true
-  tcpSocket:
+  httpGet:
+    path: /api.php?action=query&meta=siteinfo&format=none
     port: http
+    httpHeaders:
+      - name: Host
+        value: "{{ include \"mediawiki.host\" . }}"
   initialDelaySeconds: 120
-  periodSeconds: 10
+  periodSeconds: 30
   timeoutSeconds: 5
-  failureThreshold: 6
+  failureThreshold: 3
   successThreshold: 1
 ## Mediawiki containers' readinessProbe probe.
 ## Configure extra options for liveness probe
@@ -327,10 +337,10 @@ readinessProbe:
     httpHeaders:
       - name: Host
         value: "{{ include \"mediawiki.host\" . }}"
-  initialDelaySeconds: 30
-  periodSeconds: 10
-  timeoutSeconds: 5
-  failureThreshold: 6
+  initialDelaySeconds: 15
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 2
   successThreshold: 1
 ## @param customStartupProbe Override default startup probe
 ##
@@ -1148,7 +1158,7 @@ mariadb:
       runAsNonRoot: true
       privileged: false
       allowPrivilegeEscalation: false
-      readOnlyRootFilesystem: false
+      readOnlyRootFilesystem: true
       capabilities:
         drop: ["ALL"]
       seccompProfile:
@@ -1174,7 +1184,13 @@ mariadb:
     ##     cpu: 3
     ##     memory: 1024Mi
     ##
-    resources: {}
+    resources:
+      requests:
+        cpu: 2
+        memory: 1Gi
+      limits:
+        cpu: 4
+        memory: 2Gi
     ## @param primary.fips.openssl Configure OpenSSL FIPS mode: '', 'restricted', 'relaxed', 'off'. If empty (""), 'global.defaultFips' would be used
     ##
     fips:
@@ -1590,7 +1606,7 @@ mariadb:
       runAsNonRoot: true
       privileged: false
       allowPrivilegeEscalation: false
-      readOnlyRootFilesystem: false
+      readOnlyRootFilesystem: true
       capabilities:
         drop: ["ALL"]
       seccompProfile:
@@ -2421,7 +2437,7 @@ metrics:
   serviceMonitor:
     ## @param metrics.serviceMonitor.enabled Create ServiceMonitor Resource for scraping metrics using PrometheusOperator
     ##
-    enabled: true
+    enabled: false
     ## @param metrics.serviceMonitor.namespace The namespace in which the ServiceMonitor will be created
     ##
     namespace: ""
@@ -2470,10 +2486,10 @@ networkPolicy:
   ## on. When true, server will accept connections from any source
   ## (with the correct destination port).
   ##
-  allowExternal: true
+  allowExternal: false
   ## @param networkPolicy.allowExternalEgress Allow the pod to access any range of port and all destinations.
   ##
-  allowExternalEgress: true
+  allowExternalEgress: false
   ## @param networkPolicy.extraIngress [array] Add extra ingress rules to the NetworkPolicy
   ## e.g:
   ## extraIngress:
