@@ -17,6 +17,7 @@ spec:
   {{- $podLabels := include "common.tplvalues.merge" ( dict "values" ( list .Values.podLabels .Values.commonLabels ) "context" . ) }}
   podSelector:
     matchLabels: {{- include "common.labels.matchLabels" ( dict "customLabels" $podLabels "context" $ ) | nindent 6 }}
+      app.kubernetes.io/component: mediawiki
   policyTypes:
     - Ingress
     - Egress
@@ -35,10 +36,10 @@ spec:
     - ports:
         - port: {{ include "mediawiki.databasePort" . }}
       {{- if .Values.mariadb.enabled }}
-      to: 
+      to:
         - podSelector:
             matchLabels:
-              app.kubernetes.io/name: mariadb
+              app.kubernetes.io/part-of: mariadb
               app.kubernetes.io/instance: {{ .Release.Name }}
       {{- end }}
     {{- if .Values.networkPolicy.extraEgress }}

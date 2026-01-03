@@ -2,6 +2,37 @@
 
 This document tracks future improvements and deferred production-readiness items for the MediaWiki Helm chart.
 
+## Recently Completed
+
+### Label Selector Fixes (Security/Correctness)
+**Status:** COMPLETED (2026-01-03)
+**Priority:** Critical
+**Issue:** Network policies and PDBs were using overly broad label selectors that didn't distinguish between MediaWiki and MariaDB pods
+
+**Root Cause:**
+Both MediaWiki and MariaDB pods share the label `app.kubernetes.io/name: mediawiki` (because they're part of the same chart). The MariaDB network policy was accidentally matching MediaWiki pods, blocking ingress traffic to port 8080/8443.
+
+**Labels that distinguish components:**
+- MediaWiki pod: `app.kubernetes.io/component: mediawiki`
+- MariaDB pod: `app.kubernetes.io/component: primary/secondary` AND `app.kubernetes.io/part-of: mariadb`
+
+**Files Fixed:**
+- `templates/mariadb/networkpolicy.yaml` - Added `app.kubernetes.io/part-of: mariadb` to podSelector (line 21)
+- `templates/networkpolicy.yaml` - Added `app.kubernetes.io/component: mediawiki` to podSelector (line 20) and fixed egress rule to use `app.kubernetes.io/part-of: mariadb` instead of `app.kubernetes.io/name: mariadb` (line 42)
+- `templates/pdb.yaml` - Added `app.kubernetes.io/component: mediawiki` to podSelector (line 26)
+
+**Verified Correct:**
+- `templates/deployment.yaml` - Already has component selector ✓
+- `templates/mariadb/primary/statefulset.yaml` - Already has component selectors ✓
+- `templates/mariadb/secondary/statefulset.yaml` - Already has component selectors ✓
+- `templates/mariadb/primary/pdb.yaml` - Already has component selector ✓
+- `templates/mariadb/secondary/pdb.yaml` - Already has component selector ✓
+
+**Best Practice Established:**
+Always use `app.kubernetes.io/component` or `app.kubernetes.io/part-of` labels in selectors when multiple pod types exist in the same chart with the same `app.kubernetes.io/name`.
+
+---
+
 ## High Priority
 
 ### 1. Read-Only Root Filesystem (Security Hardening)
